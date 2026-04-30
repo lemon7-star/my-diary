@@ -14,13 +14,12 @@ import {
   CloudSnow,
 } from 'lucide-react';
 import { getDiaryById, deleteDiary, getTags, formatDate, getAllMoodOptions } from '../utils/storage';
-import { WEATHER_OPTIONS, type Tag, type Weather, type DiarySticker } from '../types';
+import { WEATHER_OPTIONS, type Tag, type Weather, type DiarySticker, type DiaryEntry, type MoodOption } from '../types';
 
 interface FloatingStickerViewProps {
   sticker: DiarySticker;
 }
 
-// 判断是否为emoji（单个emoji字符）
 const isEmoji = (str: string) => {
   const emojiRegex = /^(?:[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[☀-⚿]|[✀-➿]|[⭐💖🌞⛅🌸🌹🌻🌈🌙🔥👑🎁🎈🎉🎵📷📚☕🎂🐱🐶🐰🐻✨])$/u;
   return emojiRegex.test(str);
@@ -59,25 +58,40 @@ export function DetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [diary, setDiary] = useState<ReturnType<typeof getDiaryById>>(undefined);
+  const [diary, setDiary] = useState<DiaryEntry | undefined>(undefined);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [moodOptions, setMoodOptions] = useState<MoodOption[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
-      const d = getDiaryById(id);
-      if (d) {
-        setDiary(d);
-      } else {
-        navigate('/');
-      }
+      loadData();
     }
-    setTags(getTags());
   }, [id, navigate]);
 
-  const handleDelete = () => {
+  const loadData = async () => {
+    setLoading(true);
+    const [diaryData, tagsData, moodsData] = await Promise.all([
+      getDiaryById(id!),
+      getTags(),
+      getAllMoodOptions(),
+    ]);
+
+    if (!diaryData) {
+      navigate('/');
+      return;
+    }
+
+    setDiary(diaryData);
+    setTags(tagsData);
+    setMoodOptions(moodsData);
+    setLoading(false);
+  };
+
+  const handleDelete = async () => {
     if (id) {
-      deleteDiary(id);
+      await deleteDiary(id);
       navigate('/');
     }
   };
@@ -92,15 +106,18 @@ export function DetailPage() {
     }
   };
 
-  if (!diary) {
+  if (loading || !diary) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-pulse text-gray-400">加载中...</div>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-theme border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
       </div>
     );
   }
 
-  const moodOption = getAllMoodOptions().find((m) => m.value === diary.mood);
+  const moodOption = moodOptions.find((m) => m.value === diary.mood);
   const diaryTags = diary.tags
     .map((tagId) => tags.find((t) => t.id === tagId))
     .filter(Boolean) as Tag[];
@@ -128,14 +145,14 @@ export function DetailPage() {
         </Link>
       </div>
 
-      {/* Content Card - 作为画布容器 */}
+      {/* Content Card */}
       <div className="relative bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        {/* 浮动贴纸层 */}
+        {/* Stickers */}
         {stickers.map(sticker => (
           <FloatingStickerView key={sticker.id} sticker={sticker} />
         ))}
 
-        {/* 原有内容 */}
+        {/* Content */}
         <div className="relative z-0">
           {/* Header Info */}
           <div className="p-6 pb-4">

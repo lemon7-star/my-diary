@@ -15,16 +15,13 @@ import {
 } from 'lucide-react';
 import { getDiaryById, saveDiary, getTags, saveTag, generateId, getAllMoodOptions, saveCustomMood, getCustomStickers, saveCustomSticker } from '../utils/storage';
 import { DrawingCanvas } from '../components/DrawingCanvas';
-import { WEATHER_OPTIONS, TAG_COLORS, COMMON_EMOJIS, BUILTIN_STICKERS, type DiaryEntry, type DiaryImage, type DiarySticker, type Tag, type Weather, type Mood } from '../types';
+import { WEATHER_OPTIONS, TAG_COLORS, COMMON_EMOJIS, BUILTIN_STICKERS, type DiaryEntry, type DiaryImage, type DiarySticker, type Tag, type Weather, type Mood, type MoodOption, type CustomSticker } from '../types';
 
-// 判断是否为emoji（单个emoji字符）
 const isEmoji = (str: string) => {
-  // 包含常见emoji范围和一些特定的emoji字符
   const emojiRegex = /^(?:[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[☀-⚿]|[✀-➿]|[⭐💖🌞⛅🌸🌹🌻🌈🌙🔥👑🎁🎈🎉🎵📷📚☕🎂🐱🐶🐰🐻✨])$/u;
   return emojiRegex.test(str);
 };
 
-// 单个贴纸组件 - 只负责渲染和拖动
 interface StickerItemProps {
   sticker: DiarySticker;
   isSelected: boolean;
@@ -72,7 +69,6 @@ function StickerItem({ sticker, isSelected, onSelect, onDeselect, onUpdate, onDr
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - dragStartRef.current.x;
       const deltaY = e.clientY - dragStartRef.current.y;
-      // 移动超过 5px 才算拖动
       if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
         dragStartRef.current.moved = true;
       }
@@ -98,7 +94,6 @@ function StickerItem({ sticker, isSelected, onSelect, onDeselect, onUpdate, onDr
     const handleEnd = () => {
       setIsDragging(false);
       onDraggingChange(false);
-      // 如果没有移动（只是点击），切换选中状态
       if (!dragStartRef.current.moved) {
         if (isSelected) {
           onDeselect();
@@ -166,37 +161,45 @@ export function EditorPage() {
   const [location, setLocation] = useState('');
   const [weather, setWeather] = useState<Weather | undefined>();
   const [showWeatherPicker, setShowWeatherPicker] = useState(false);
-  const [moodOptions, setMoodOptions] = useState(getAllMoodOptions());
+  const [moodOptions, setMoodOptions] = useState<MoodOption[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showTagModal, setShowTagModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0].value);
 
-  // Custom mood modal
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [newMoodLabel, setNewMoodLabel] = useState('');
   const [newMoodEmoji, setNewMoodEmoji] = useState('😊');
 
-  // Sticker modal
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [activeStickerTab, setActiveStickerTab] = useState<'builtin' | 'custom' | 'handdraw'>('builtin');
-  const [customStickers, setCustomStickers] = useState(getCustomStickers());
+  const [customStickers, setCustomStickers] = useState<CustomSticker[]>([]);
 
-  // Get current date info
   const today = new Date();
   const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
   const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`;
 
   useEffect(() => {
-    setTags(getTags());
-    setMoodOptions(getAllMoodOptions());
-    setCustomStickers(getCustomStickers());
+    loadData();
+  }, [id]);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [tagsData, moodsData, stickersData] = await Promise.all([
+      getTags(),
+      getAllMoodOptions(),
+      getCustomStickers(),
+    ]);
+    setTags(tagsData);
+    setMoodOptions(moodsData);
+    setCustomStickers(stickersData);
 
     if (id) {
-      const diary = getDiaryById(id);
+      const diary = await getDiaryById(id);
       if (diary) {
         setTitle(diary.title);
         setContent(diary.content);
@@ -208,9 +211,9 @@ export function EditorPage() {
         setWeather(diary.weather);
       }
     }
-  }, [id]);
+    setLoading(false);
+  };
 
-  // 点击空白处取消选择贴纸
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -222,10 +225,18 @@ export function EditorPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
       alert('请填写标题和内容');
       return;
+    }
+
+    let createdAt = Date.now();
+    if (id) {
+      const existingDiary = await getDiaryById(id);
+      if (existingDiary) {
+        createdAt = existingDiary.createdAt;
+      }
     }
 
     const diary: DiaryEntry = {
@@ -239,11 +250,11 @@ export function EditorPage() {
       stickers,
       location: location || undefined,
       weather,
-      createdAt: id ? getDiaryById(id)!.createdAt : Date.now(),
+      createdAt,
       updatedAt: Date.now(),
     };
 
-    saveDiary(diary);
+    await saveDiary(diary);
     navigate('/');
   };
 
@@ -271,15 +282,16 @@ export function EditorPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const newSticker = {
         id: generateId(),
         name: file.name.split('.')[0],
         url: event.target?.result as string,
         createdAt: Date.now(),
       };
-      saveCustomSticker(newSticker);
-      setCustomStickers(getCustomStickers());
+      await saveCustomSticker(newSticker);
+      const stickers = await getCustomStickers();
+      setCustomStickers(stickers);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -333,7 +345,7 @@ export function EditorPage() {
     );
   };
 
-  const handleCreateTag = () => {
+  const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
 
     const newTag: Tag = {
@@ -343,14 +355,15 @@ export function EditorPage() {
       createdAt: Date.now(),
     };
 
-    saveTag(newTag);
-    setTags([...tags, newTag]);
+    await saveTag(newTag);
+    const updatedTags = await getTags();
+    setTags(updatedTags);
     setSelectedTags([...selectedTags, newTag.id]);
     setNewTagName('');
     setShowTagModal(false);
   };
 
-  const handleCreateMood = () => {
+  const handleCreateMood = async () => {
     if (!newMoodLabel.trim()) return;
 
     const customMood = {
@@ -360,8 +373,9 @@ export function EditorPage() {
       createdAt: Date.now(),
     };
 
-    saveCustomMood(customMood);
-    setMoodOptions(getAllMoodOptions());
+    await saveCustomMood(customMood);
+    const updatedMoods = await getAllMoodOptions();
+    setMoodOptions(updatedMoods);
     setMood(customMood.id);
     setNewMoodLabel('');
     setNewMoodEmoji('😊');
@@ -383,7 +397,6 @@ export function EditorPage() {
         const { latitude, longitude } = position.coords;
 
         try {
-          // 使用 Nominatim API 反向地理编码
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=zh-CN`,
             {
@@ -398,49 +411,35 @@ export function EditorPage() {
           }
 
           const data = await response.json();
-
-          // 提取地址信息
           const address = data.address;
 
-          // 构建友好的地址格式：城市 + 区/县 + 街道
           let city = address.city || address.town || address.county || '';
           const district = address.district || address.suburb || address.borough || '';
           const street = address.road || address.street || address.road_reference || '';
 
-          // 过滤掉奇怪的内容（包含数字、单个字符、或看起来像人名的情况）
           const isWeirdContent = (str: string) => {
             if (!str) return true;
-            // 如果包含太多数字，可能是门牌号
             if (/\d{3,}/.test(str)) return true;
-            // 如果是单个字符
             if (str.length <= 1) return true;
-            // 如果包含"村民委员会"等奇怪内容
             if (/村民委员会|居民委员会|村委会|居委会/.test(str)) return true;
             return false;
           };
 
-          // 清理城市名后缀
           if (city) {
-            city = city.replace(/市$/, ''); // 移除末尾的"市"
+            city = city.replace(/市$/, '');
           }
 
-          // 构建简洁地址
           let locationString = '';
 
           if (city && district) {
-            // 优先格式：城市 · 区县
             locationString = `${city} · ${district}`;
           } else if (city && street && !isWeirdContent(street)) {
-            // 次选：城市 · 街道
             locationString = `${city} · ${street}`;
           } else if (city) {
-            // 只有城市
             locationString = city;
           } else if (district) {
-            // 只有区县
             locationString = district;
           } else {
-            // 保底：使用 display_name 但截短
             const displayName = data.display_name || '';
             const firstPart = displayName.split(',')[0];
             locationString = firstPart || '当前位置';
@@ -479,6 +478,17 @@ export function EditorPage() {
 
   const getCurrentMood = () => moodOptions.find(m => m.value === mood);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-theme border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto pb-24">
       {/* Header */}
@@ -502,9 +512,8 @@ export function EditorPage() {
         </button>
       </div>
 
-      {/* Editor Form - 作为画布容器 */}
+      {/* Editor Form */}
       <div ref={editorRef} className="relative bg-white rounded-2xl border border-gray-200 p-6 space-y-6 min-h-[500px]">
-        {/* 浮动贴纸层 - 贴纸本体 */}
         {stickers.map(sticker => (
           <StickerItem
             key={sticker.id}
@@ -517,7 +526,6 @@ export function EditorPage() {
           />
         ))}
 
-        {/* 浮动贴纸层 - 删除按钮（完全独立渲染，拖动时隐藏） */}
         {!isAnyStickerDragging && stickers.map(sticker => (
           selectedStickerId === sticker.id && (
             <div
@@ -555,7 +563,6 @@ export function EditorPage() {
           )
         ))}
 
-        {/* 原有内容 */}
         <div className="relative z-0">
           {/* Date */}
           <div className="text-center">
@@ -627,7 +634,6 @@ export function EditorPage() {
                   </span>
                 </button>
               ))}
-              {/* Add Custom Mood Button */}
               <button
                 onClick={() => setShowMoodModal(true)}
                 className="flex flex-col items-center gap-1 p-3 rounded-xl transition-all hover:bg-gray-50 border-2 border-dashed border-gray-300"
@@ -700,7 +706,6 @@ export function EditorPage() {
       {/* Bottom Toolbar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-around">
-          {/* Image Upload */}
           <label className="flex flex-col items-center gap-1 text-gray-600 cursor-pointer hover:text-theme transition-colors">
             <ImagePlus className="w-6 h-6" />
             <span className="text-xs">图片</span>
@@ -713,7 +718,6 @@ export function EditorPage() {
             />
           </label>
 
-          {/* Sticker */}
           <button
             onClick={() => setShowStickerModal(true)}
             className="flex flex-col items-center gap-1 text-gray-600 hover:text-theme transition-colors"
@@ -722,7 +726,6 @@ export function EditorPage() {
             <span className="text-xs">贴纸</span>
           </button>
 
-          {/* Location */}
           <button
             onClick={() => setShowLocationModal(true)}
             className={`flex flex-col items-center gap-1 transition-colors ${location ? 'text-theme' : 'text-gray-600 hover:text-theme'}`}
@@ -731,7 +734,6 @@ export function EditorPage() {
             <span className="text-xs">位置</span>
           </button>
 
-          {/* Weather */}
           <div className="relative">
             <button
               onClick={() => setShowWeatherPicker(!showWeatherPicker)}
@@ -741,7 +743,6 @@ export function EditorPage() {
               <span className="text-xs">天气</span>
             </button>
 
-            {/* Weather Picker Dropdown */}
             {showWeatherPicker && (
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex gap-1">
                 {WEATHER_OPTIONS.map((w) => (
@@ -771,7 +772,6 @@ export function EditorPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">添加标签</h3>
 
-            {/* Existing Tags */}
             {tags.length > 0 && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -805,7 +805,6 @@ export function EditorPage() {
               </div>
             )}
 
-            {/* Create New Tag */}
             <div className="border-t border-gray-100 pt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 创建新标签
@@ -860,7 +859,6 @@ export function EditorPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">添加自定义心情</h3>
 
             <div className="space-y-4">
-              {/* Mood Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   心情名称
@@ -874,7 +872,6 @@ export function EditorPage() {
                 />
               </div>
 
-              {/* Emoji Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   选择图标
@@ -896,7 +893,6 @@ export function EditorPage() {
                 </div>
               </div>
 
-              {/* Preview */}
               <div className="bg-gray-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-gray-500 mb-2">预览</p>
                 <span className="text-4xl">{newMoodEmoji}</span>
@@ -932,7 +928,6 @@ export function EditorPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">添加位置</h3>
 
             <div className="space-y-4">
-              {/* 获取当前位置按钮 */}
               <button
                 onClick={handleGetLocation}
                 disabled={isLocating}
@@ -942,12 +937,10 @@ export function EditorPage() {
                 {isLocating ? '定位中...' : '📍 获取当前位置'}
               </button>
 
-              {/* 错误提示 */}
               {locationError && (
                 <p className="text-sm text-red-500 text-center">{locationError}</p>
               )}
 
-              {/* 手动输入 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   或手动输入
@@ -961,7 +954,6 @@ export function EditorPage() {
                 />
               </div>
 
-              {/* 清除位置 */}
               {location && (
                 <button
                   onClick={() => setLocation('')}
@@ -1000,7 +992,6 @@ export function EditorPage() {
       {showStickerModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-[650px] h-[80vh] flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900">添加贴纸</h3>
               <button
@@ -1011,7 +1002,6 @@ export function EditorPage() {
               </button>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-gray-100">
               <button
                 onClick={() => setActiveStickerTab('builtin')}
@@ -1045,7 +1035,6 @@ export function EditorPage() {
               </button>
             </div>
 
-            {/* Content */}
             <div className={`flex-1 p-4 ${activeStickerTab === 'handdraw' ? 'overflow-y-auto flex flex-col' : 'overflow-y-auto'}`}>
               {activeStickerTab === 'builtin' && (
                 <div className="grid grid-cols-4 gap-3">

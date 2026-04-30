@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Flame, Smile, Tag as TagIcon, TrendingUp } from 'lucide-react';
 import { getDiaries, getTags, getAllMoodOptions } from '../utils/storage';
-import { PRESET_MOOD_OPTIONS, type DiaryEntry, type Tag } from '../types';
+import type { DiaryEntry, Tag, MoodOption } from '../types';
 
 interface StatsData {
   totalDays: number;
@@ -14,15 +14,24 @@ interface StatsData {
 
 export function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const diaries = getDiaries();
-    const allTags = getTags();
-    const allMoods = getAllMoodOptions();
-    setStats(calculateStats(diaries, allTags, allMoods));
+    loadData();
   }, []);
 
-  const calculateStats = (diaries: DiaryEntry[], allTags: Tag[], allMoods: typeof PRESET_MOOD_OPTIONS): StatsData => {
+  const loadData = async () => {
+    setLoading(true);
+    const [diaries, allTags, allMoods] = await Promise.all([
+      getDiaries(),
+      getTags(),
+      getAllMoodOptions(),
+    ]);
+    setStats(calculateStats(diaries, allTags, allMoods));
+    setLoading(false);
+  };
+
+  const calculateStats = (diaries: DiaryEntry[], allTags: Tag[], allMoods: MoodOption[]): StatsData => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -84,18 +93,18 @@ export function StatsPage() {
       };
     });
 
-    // 心情分布 - 包括预设和自定义心情
+    // 心情分布
     const moodColors: Record<string, string> = {
-      happy: '#FCD34D', // yellow-300
-      calm: '#6EE7B7',  // emerald-300
-      sad: '#93C5FD',   // blue-300
-      angry: '#FCA5A5', // red-300
-      love: '#F9A8D4',  // pink-300
+      happy: '#FCD34D',
+      calm: '#6EE7B7',
+      sad: '#93C5FD',
+      angry: '#FCA5A5',
+      love: '#F9A8D4',
     };
     const moodDistribution = allMoods.map(m => ({
       ...m,
       count: moodCounts[m.value] || 0,
-      color: moodColors[m.value] || '#A78BFA', // 自定义心情使用紫色
+      color: moodColors[m.value] || '#A78BFA',
     }));
 
     return {
@@ -115,7 +124,6 @@ export function StatsPage() {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-    // 如果今天或昨天没有记录，连续天数为0
     if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
       return 0;
     }
@@ -141,16 +149,22 @@ export function StatsPage() {
     return `${now.getFullYear()}年${now.getMonth() + 1}月`;
   }, []);
 
-  // 计算柱状图最大高度
   const maxCount = stats ? Math.max(...stats.last7Days.map(d => d.count), 1) : 1;
   const maxMoodCount = stats ? Math.max(...stats.moodDistribution.map(m => m.count), 1) : 1;
 
-  if (!stats) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-pulse text-gray-400">加载中...</div>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-theme border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
       </div>
     );
+  }
+
+  if (!stats) {
+    return null;
   }
 
   return (

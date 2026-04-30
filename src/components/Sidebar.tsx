@@ -7,11 +7,16 @@ import {
   Palette,
   BookHeart,
   BarChart3,
+  LogOut,
+  User,
+  Settings,
 } from 'lucide-react';
 import { getDiaries, getTags } from '../utils/storage';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Sidebar() {
   const location = useLocation();
+  const { profile, signOut } = useAuth();
   const [stats, setStats] = useState({
     totalDiaries: 0,
     totalTags: 0,
@@ -19,8 +24,14 @@ export function Sidebar() {
   });
 
   useEffect(() => {
-    const diaries = getDiaries();
-    const tags = getTags();
+    loadData();
+  }, [location.pathname]);
+
+  const loadData = async () => {
+    const [diaries, tags] = await Promise.all([
+      getDiaries(),
+      getTags(),
+    ]);
 
     const now = new Date();
     const thisMonthCount = diaries.filter(d => {
@@ -33,7 +44,13 @@ export function Sidebar() {
       totalTags: tags.length,
       thisMonth: thisMonthCount,
     });
-  }, [location.pathname]);
+  };
+
+  const handleSignOut = async () => {
+    if (confirm('确定要退出登录吗？')) {
+      await signOut();
+    }
+  };
 
   const navItems = [
     { path: '/', icon: Home, label: '首页' },
@@ -58,52 +75,95 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Navigation */}
+        <nav className="flex-1 min-h-0 overflow-y-auto p-4">
+          <ul className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
 
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                    ${isActive
-                      ? 'bg-theme-light text-theme font-medium'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+              return (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={`
+                      flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                      ${isActive
+                        ? 'bg-theme-light text-theme font-medium'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      {/* Stats */}
-      <div className="p-4 border-t border-gray-100">
-        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-medium text-gray-700">统计概览</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-theme">{stats.totalDiaries}</p>
-              <p className="text-xs text-gray-500">总日记数</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{stats.thisMonth}</p>
-              <p className="text-xs text-gray-500">本月</p>
+        {/* Bottom Panels */}
+        <div className="shrink-0">
+          <div className="p-4 border-t border-gray-100">
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-medium text-gray-700">统计概览</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-theme">{stats.totalDiaries}</p>
+                  <p className="text-xs text-gray-500">总日记数</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{stats.thisMonth}</p>
+                  <p className="text-xs text-gray-500">本月</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">标签总数</span>
+                  <span className="font-medium text-gray-900">{stats.totalTags} 个</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="pt-2 border-t border-gray-200">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">标签总数</span>
-              <span className="font-medium text-gray-900">{stats.totalTags} 个</span>
+
+          <div className="p-4 border-t border-gray-100 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-theme-light rounded-full flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.username}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-theme" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 truncate max-w-[160px]">
+                  {profile?.username || '用户'}
+                </p>
+                <p className="text-xs text-gray-500">已登录</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Link
+                to="/profile"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
+              >
+                <Settings className="w-5 h-5" />
+                <span>个人设置</span>
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-500 transition-all"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>退出登录</span>
+              </button>
             </div>
           </div>
         </div>

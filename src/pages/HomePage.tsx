@@ -2,28 +2,38 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Calendar, Tag as TagIcon, Trash2 } from 'lucide-react';
 import { getDiaries, getTags, deleteDiary, groupDiariesByMonth, formatDate, getAllMoodOptions } from '../utils/storage';
-import type { DiaryEntry, Tag } from '../types';
+import type { DiaryEntry, Tag, MoodOption } from '../types';
 
 export function HomePage() {
   const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [moodOptions, setMoodOptions] = useState<MoodOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setDiaries(getDiaries());
-    setTags(getTags());
+  const loadData = async () => {
+    setLoading(true);
+    const [diariesData, tagsData, moodsData] = await Promise.all([
+      getDiaries(),
+      getTags(),
+      getAllMoodOptions(),
+    ]);
+    setDiaries(diariesData);
+    setTags(tagsData);
+    setMoodOptions(moodsData);
+    setLoading(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteDiary(id);
+  const handleDelete = async (id: string) => {
+    await deleteDiary(id);
     setDeleteConfirmId(null);
-    loadData();
+    await loadData();
   };
 
   const filteredDiaries = diaries.filter(diary => {
@@ -37,10 +47,21 @@ export function HomePage() {
 
   const getMoodEmoji = (mood: string | undefined) => {
     if (!mood) return '😐';
-    return getAllMoodOptions().find(m => m.value === mood)?.emoji || '😐';
+    return moodOptions.find(m => m.value === mood)?.emoji || '😐';
   };
 
   const getTagById = (tagId: string) => tags.find(t => t.id === tagId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-theme border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (diaries.length === 0) {
     return (
@@ -141,7 +162,7 @@ export function HomePage() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       {diary.mood && (
-                        <span className="text-2xl" title={getAllMoodOptions().find(m => m.value === diary.mood)?.label}>
+                        <span className="text-2xl" title={moodOptions.find(m => m.value === diary.mood)?.label}>
                           {getMoodEmoji(diary.mood)}
                         </span>
                       )}

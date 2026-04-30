@@ -18,23 +18,27 @@ export function TagsPage() {
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState(TAG_COLORS[0].value);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const allTags = getTags();
+  const loadData = async () => {
+    setLoading(true);
+    const [allTags, diaries] = await Promise.all([
+      getTags(),
+      getDiaries(),
+    ]);
     setTags(allTags);
 
-    const diaries = getDiaries();
     const countMap = new Map<string, number>();
-
     allTags.forEach((tag) => {
       const count = diaries.filter((d) => d.tags.includes(tag.id)).length;
       countMap.set(tag.id, count);
     });
     setDiaryCountByTag(countMap);
+    setLoading(false);
   };
 
   const openCreateModal = () => {
@@ -51,7 +55,7 @@ export function TagsPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!tagName.trim()) return;
 
     const tag: TagType = {
@@ -61,16 +65,27 @@ export function TagsPage() {
       createdAt: editingTag?.createdAt || Date.now(),
     };
 
-    saveTag(tag);
+    await saveTag(tag);
     setShowModal(false);
-    loadData();
+    await loadData();
   };
 
-  const handleDelete = (tagId: string) => {
-    deleteTag(tagId);
+  const handleDelete = async (tagId: string) => {
+    await deleteTag(tagId);
     setDeleteConfirmId(null);
-    loadData();
+    await loadData();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-theme border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">

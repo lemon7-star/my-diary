@@ -34,12 +34,16 @@ export function ThemePage() {
   const [moodToDelete, setMoodToDelete] = useState<CustomMood | null>(null);
 
   useEffect(() => {
-    setCustomMoods(getCustomMoods());
+    const loadCustomMoods = async () => {
+      setCustomMoods(await getCustomMoods());
+    };
+
+    void loadCustomMoods();
   }, []);
 
-  const handleDeleteMood = (mood: CustomMood) => {
-    deleteCustomMood(mood.id);
-    setCustomMoods(getCustomMoods());
+  const handleDeleteMood = async (mood: CustomMood) => {
+    await deleteCustomMood(mood.id);
+    setCustomMoods(await getCustomMoods());
     setMoodToDelete(null);
   };
 
