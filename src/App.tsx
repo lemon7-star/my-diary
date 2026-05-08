@@ -14,7 +14,7 @@ import { ProfileSettingsPage } from './pages/ProfileSettingsPage';
 import { getTheme } from './utils/storage';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, authResolved } = useAuth();
 
   // Apply theme on app load
   useEffect(() => {
@@ -43,7 +43,7 @@ function AppRoutes() {
     document.body.className = `bg-gray-50 text-gray-900 antialiased ${fontClass}`;
   }, []);
 
-  if (loading) {
+  if (!authResolved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

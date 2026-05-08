@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Plus,
   Edit2,
@@ -7,39 +8,19 @@ import {
   Save,
   Tag,
 } from 'lucide-react';
-import { getTags, saveTag, deleteTag, getDiaries } from '../utils/storage';
+import { deriveTagCountsFromDiaries, saveTag, deleteTag } from '../utils/storage';
 import { TAG_COLORS, type Tag as TagType } from '../types';
+import type { DiaryIndexOutletContext } from '../components/Layout';
 
 export function TagsPage() {
-  const [tags, setTags] = useState<TagType[]>([]);
-  const [diaryCountByTag, setDiaryCountByTag] = useState<Map<string, number>>(new Map());
+  const { diaries, tags, loading, refresh } = useOutletContext<DiaryIndexOutletContext>();
   const [showModal, setShowModal] = useState(false);
   const [editingTag, setEditingTag] = useState<TagType | null>(null);
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState(TAG_COLORS[0].value);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    const [allTags, diaries] = await Promise.all([
-      getTags(),
-      getDiaries(),
-    ]);
-    setTags(allTags);
-
-    const countMap = new Map<string, number>();
-    allTags.forEach((tag) => {
-      const count = diaries.filter((d) => d.tags.includes(tag.id)).length;
-      countMap.set(tag.id, count);
-    });
-    setDiaryCountByTag(countMap);
-    setLoading(false);
-  };
+  const diaryCountByTag = useMemo(() => deriveTagCountsFromDiaries(diaries), [diaries]);
 
   const openCreateModal = () => {
     setEditingTag(null);
@@ -67,13 +48,13 @@ export function TagsPage() {
 
     await saveTag(tag);
     setShowModal(false);
-    await loadData();
+    await refresh();
   };
 
   const handleDelete = async (tagId: string) => {
     await deleteTag(tagId);
     setDeleteConfirmId(null);
-    await loadData();
+    await refresh();
   };
 
   if (loading) {

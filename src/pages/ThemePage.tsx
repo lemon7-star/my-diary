@@ -9,6 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getTheme, saveTheme, getCustomMoods, deleteCustomMood } from '../utils/storage';
+import { useAuth } from '../contexts/AuthContext';
 import { THEME_COLORS, BORDER_RADIUS_OPTIONS, FONT_OPTIONS, type ThemeSettings, type CustomMood } from '../types';
 
 // Helper functions for color manipulation
@@ -28,22 +29,28 @@ function adjustColor(hex: string, amount: number): string {
 }
 
 export function ThemePage() {
+  const { user } = useAuth();
   const [theme, setTheme] = useState<ThemeSettings>(getTheme());
   const [saved, setSaved] = useState(false);
   const [customMoods, setCustomMoods] = useState<CustomMood[]>([]);
   const [moodToDelete, setMoodToDelete] = useState<CustomMood | null>(null);
 
-  useEffect(() => {
-    const loadCustomMoods = async () => {
-      setCustomMoods(await getCustomMoods());
-    };
+  const loadCustomMoods = async () => {
+    if (!user?.id) {
+      setCustomMoods([]);
+      return;
+    }
 
+    setCustomMoods(await getCustomMoods(user.id));
+  };
+
+  useEffect(() => {
     void loadCustomMoods();
-  }, []);
+  }, [user?.id]);
 
   const handleDeleteMood = async (mood: CustomMood) => {
     await deleteCustomMood(mood.id);
-    setCustomMoods(await getCustomMoods());
+    await loadCustomMoods();
     setMoodToDelete(null);
   };
 

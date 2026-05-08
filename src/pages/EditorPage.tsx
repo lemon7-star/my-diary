@@ -14,6 +14,7 @@ import {
   Smile,
 } from 'lucide-react';
 import { getDiaryById, saveDiary, getTags, saveTag, generateId, getAllMoodOptions, saveCustomMood, getCustomStickers, saveCustomSticker } from '../utils/storage';
+import { useAuth } from '../contexts/AuthContext';
 import { DrawingCanvas } from '../components/DrawingCanvas';
 import { WEATHER_OPTIONS, TAG_COLORS, COMMON_EMOJIS, BUILTIN_STICKERS, type DiaryEntry, type DiaryImage, type DiarySticker, type Tag, type Weather, type Mood, type MoodOption, type CustomSticker } from '../types';
 
@@ -147,6 +148,7 @@ function StickerItem({ sticker, isSelected, onSelect, onDeselect, onUpdate, onDr
 export function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [title, setTitle] = useState('');
@@ -184,15 +186,20 @@ export function EditorPage() {
   const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`;
 
   useEffect(() => {
-    loadData();
-  }, [id]);
+    void loadData();
+  }, [id, user?.id]);
 
   const loadData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const [tagsData, moodsData, stickersData] = await Promise.all([
-      getTags(),
-      getAllMoodOptions(),
-      getCustomStickers(),
+      getTags(user.id),
+      getAllMoodOptions(user.id),
+      getCustomStickers(user.id),
     ]);
     setTags(tagsData);
     setMoodOptions(moodsData);
@@ -226,6 +233,10 @@ export function EditorPage() {
   }, []);
 
   const handleSave = async () => {
+    if (!user?.id) {
+      return;
+    }
+
     if (!title.trim() || !content.trim()) {
       alert('请填写标题和内容');
       return;
@@ -254,7 +265,7 @@ export function EditorPage() {
       updatedAt: Date.now(),
     };
 
-    await saveDiary(diary);
+    await saveDiary(user.id, diary);
     navigate('/');
   };
 
@@ -279,7 +290,7 @@ export function EditorPage() {
 
   const handleStickerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user?.id) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -289,8 +300,8 @@ export function EditorPage() {
         url: event.target?.result as string,
         createdAt: Date.now(),
       };
-      await saveCustomSticker(newSticker);
-      const stickers = await getCustomStickers();
+      await saveCustomSticker(user.id, newSticker);
+      const stickers = await getCustomStickers(user.id);
       setCustomStickers(stickers);
     };
     reader.readAsDataURL(file);
@@ -346,7 +357,7 @@ export function EditorPage() {
   };
 
   const handleCreateTag = async () => {
-    if (!newTagName.trim()) return;
+    if (!newTagName.trim() || !user?.id) return;
 
     const newTag: Tag = {
       id: generateId(),
@@ -356,7 +367,7 @@ export function EditorPage() {
     };
 
     await saveTag(newTag);
-    const updatedTags = await getTags();
+    const updatedTags = await getTags(user.id);
     setTags(updatedTags);
     setSelectedTags([...selectedTags, newTag.id]);
     setNewTagName('');
@@ -364,7 +375,7 @@ export function EditorPage() {
   };
 
   const handleCreateMood = async () => {
-    if (!newMoodLabel.trim()) return;
+    if (!newMoodLabel.trim() || !user?.id) return;
 
     const customMood = {
       id: `custom-${generateId()}`,
@@ -373,8 +384,8 @@ export function EditorPage() {
       createdAt: Date.now(),
     };
 
-    await saveCustomMood(customMood);
-    const updatedMoods = await getAllMoodOptions();
+    await saveCustomMood(user.id, customMood);
+    const updatedMoods = await getAllMoodOptions(user.id);
     setMoodOptions(updatedMoods);
     setMood(customMood.id);
     setNewMoodLabel('');

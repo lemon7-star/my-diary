@@ -1,6 +1,6 @@
 import type { DiaryEntry, Tag, ThemeSettings, CustomMood, MoodOption, CustomSticker } from '../types';
 import { PRESET_MOOD_OPTIONS } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, type DiaryEntryDB, type CustomMoodDB, type CustomStickerDB } from '../lib/supabase';
 
 const STORAGE_KEYS = {
   theme: 'my-diary-theme',
@@ -17,18 +17,35 @@ export const generateId = (): string => {
   return crypto.randomUUID();
 };
 
+type DiarySummaryDB = Pick<DiaryEntryDB, 'id' | 'title' | 'content' | 'mood' | 'tags' | 'created_at' | 'updated_at'>;
+type CustomMoodSummaryDB = Pick<CustomMoodDB, 'id' | 'name' | 'emoji' | 'created_at'>;
+
+const DIARY_SUMMARY_SELECT = 'id, title, content, mood, tags, created_at, updated_at';
+
 // ============================================
 // Diary Entry Storage (Supabase)
 // ============================================
 
-export const getDiaries = async (): Promise<DiaryEntry[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+export const getDiarySummaries = async (userId: string): Promise<DiaryEntry[]> => {
+  const { data, error } = await supabase
+    .from('diary_entries')
+    .select(DIARY_SUMMARY_SELECT)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
+  if (error) {
+    console.error('Error fetching diary summaries:', error);
+    return [];
+  }
+
+  return data.map((entry) => mapDiarySummaryFromDB(entry as DiarySummaryDB));
+};
+
+export const getDiaries = async (userId: string): Promise<DiaryEntry[]> => {
   const { data, error } = await supabase
     .from('diary_entries')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -36,16 +53,13 @@ export const getDiaries = async (): Promise<DiaryEntry[]> => {
     return [];
   }
 
-  return data.map(mapDiaryFromDB);
+  return data.map((entry) => mapDiaryFromDB(entry as DiaryEntryDB));
 };
 
-export const saveDiary = async (diary: DiaryEntry): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
+export const saveDiary = async (userId: string, diary: DiaryEntry): Promise<void> => {
   const diaryDB = {
     id: diary.id,
-    user_id: user.id,
+    user_id: userId,
     title: diary.title,
     content: diary.content,
     mood: diary.mood,
@@ -90,74 +104,99 @@ export const getDiaryById = async (id: string): Promise<DiaryEntry | undefined> 
     return undefined;
   }
 
-  return data ? mapDiaryFromDB(data) : undefined;
+  return data ? mapDiaryFromDB(data as DiaryEntryDB) : undefined;
 };
 
-// Helper to map DB diary to local format
-const mapDiaryFromDB = (data: any): DiaryEntry => ({
+const mapDiaryBase = (data: DiarySummaryDB) => ({
   id: data.id,
   title: data.title,
   content: data.content,
   date: data.created_at.split('T')[0],
   mood: data.mood,
   tags: data.tags || [],
+  createdAt: new Date(data.created_at).getTime(),
+  updatedAt: new Date(data.updated_at).getTime(),
+});
+
+const mapDiarySummaryFromDB = (data: DiarySummaryDB): DiaryEntry => ({
+  ...mapDiaryBase(data),
+  images: [],
+  stickers: [],
+  location: undefined,
+  weather: undefined,
+});
+
+// Helper to map DB diary to local format
+const mapDiaryFromDB = (data: DiaryEntryDB): DiaryEntry => ({
+  ...mapDiaryBase(data),
   images: data.images || [],
   stickers: data.stickers || [],
   location: data.location,
-  weather: data.weather,
-  createdAt: new Date(data.created_at).getTime(),
-  updatedAt: new Date(data.updated_at).getTime(),
+  weather: data.weather as DiaryEntry['weather'],
 });
 
 // ============================================
 // Tag Storage (extracted from diary entries)
 // ============================================
 
-export const getTags = async (): Promise<Tag[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('diary_entries')
-    .select('tags')
-    .eq('user_id', user.id);
-
-  if (error) {
-    console.error('Error fetching tags:', error);
-    return [];
-  }
-
-  // Extract unique tags from all diaries
+export const deriveTagsFromDiaries = (diaries: Pick<DiaryEntry, 'tags'>[]): Tag[] => {
   const tagMap = new Map<string, Tag>();
-  data.forEach((diary: any) => {
-    if (diary.tags && Array.isArray(diary.tags)) {
-      diary.tags.forEach((tag: string, index: number) => {
-        if (!tagMap.has(tag)) {
-          tagMap.set(tag, {
-            id: generateId(),
-            name: tag,
-            color: TAG_COLORS[index % TAG_COLORS.length].value,
-            createdAt: Date.now(),
-          });
-        }
+  let colorIndex = 0;
+
+  diaries.forEach((diary) => {
+    diary.tags.forEach((rawTag) => {
+      const tagName = rawTag.trim();
+      if (!tagName || tagMap.has(tagName)) {
+        return;
+      }
+
+      tagMap.set(tagName, {
+        id: tagName,
+        name: tagName,
+        color: TAG_COLORS[colorIndex % TAG_COLORS.length].value,
+        createdAt: Date.now(),
       });
-    }
+      colorIndex += 1;
+    });
   });
 
   return Array.from(tagMap.values());
 };
 
+export const deriveTagCountsFromDiaries = (diaries: Pick<DiaryEntry, 'tags'>[]): Map<string, number> => {
+  const countMap = new Map<string, number>();
+
+  diaries.forEach((diary) => {
+    diary.tags.forEach((rawTag) => {
+      const tagName = rawTag.trim();
+      if (!tagName) {
+        return;
+      }
+
+      countMap.set(tagName, (countMap.get(tagName) || 0) + 1);
+    });
+  });
+
+  return countMap;
+};
+
+export const getTags = async (userId: string): Promise<Tag[]> => {
+  const diaries = await getDiarySummaries(userId);
+  return deriveTagsFromDiaries(diaries);
+};
+
 // For backward compatibility, tags are stored within diary entries
 // These functions are kept for consistency but may not be needed
-export const saveTag = async (_tag: Tag): Promise<void> => {
-  // Tags are managed within diary entries
+export const saveTag = async (tag: Tag): Promise<void> => {
+  void tag;
 };
 
-export const deleteTag = async (_id: string): Promise<void> => {
-  // Tags are managed within diary entries
+export const deleteTag = async (id: string): Promise<void> => {
+  void id;
 };
 
-export const getTagById = async (_id: string): Promise<Tag | undefined> => {
+export const getTagById = async (id: string): Promise<Tag | undefined> => {
+  void id;
   return undefined;
 };
 
@@ -218,14 +257,11 @@ export const groupDiariesByMonth = (diaries: DiaryEntry[]): Map<string, DiaryEnt
 // Custom Moods Storage (Supabase)
 // ============================================
 
-export const getCustomMoods = async (): Promise<CustomMood[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
+export const getCustomMoods = async (userId: string): Promise<CustomMood[]> => {
   const { data, error } = await supabase
     .from('custom_moods')
-    .select('*')
-    .eq('user_id', user.id)
+    .select('id, name, emoji, created_at')
+    .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -233,23 +269,23 @@ export const getCustomMoods = async (): Promise<CustomMood[]> => {
     return [];
   }
 
-  return data.map((m: any) => ({
-    id: m.id,
-    label: m.name,
-    emoji: m.emoji,
-    createdAt: new Date(m.created_at).getTime(),
-  }));
+  return data.map((mood) => {
+    const entry = mood as CustomMoodSummaryDB;
+    return {
+      id: entry.id,
+      label: entry.name,
+      emoji: entry.emoji,
+      createdAt: new Date(entry.created_at).getTime(),
+    };
+  });
 };
 
-export const saveCustomMood = async (mood: CustomMood): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
+export const saveCustomMood = async (userId: string, mood: CustomMood): Promise<void> => {
   const { error } = await supabase
     .from('custom_moods')
     .upsert({
       id: mood.id,
-      user_id: user.id,
+      user_id: userId,
       name: mood.label,
       emoji: mood.emoji,
     }, { onConflict: 'id' });
@@ -272,8 +308,8 @@ export const deleteCustomMood = async (id: string): Promise<void> => {
   }
 };
 
-export const getAllMoodOptions = async (): Promise<MoodOption[]> => {
-  const customMoods = await getCustomMoods();
+export const getAllMoodOptions = async (userId: string): Promise<MoodOption[]> => {
+  const customMoods = await getCustomMoods(userId);
   const customOptions: MoodOption[] = customMoods.map(m => ({
     value: m.id,
     label: m.label,
@@ -287,14 +323,11 @@ export const getAllMoodOptions = async (): Promise<MoodOption[]> => {
 // Custom Stickers Storage (Supabase)
 // ============================================
 
-export const getCustomStickers = async (): Promise<CustomSticker[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
+export const getCustomStickers = async (userId: string): Promise<CustomSticker[]> => {
   const { data, error } = await supabase
     .from('custom_stickers')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -302,23 +335,23 @@ export const getCustomStickers = async (): Promise<CustomSticker[]> => {
     return [];
   }
 
-  return data.map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    url: s.data,
-    createdAt: new Date(s.created_at).getTime(),
-  }));
+  return data.map((sticker) => {
+    const entry = sticker as CustomStickerDB;
+    return {
+      id: entry.id,
+      name: entry.name,
+      url: entry.data,
+      createdAt: new Date(entry.created_at).getTime(),
+    };
+  });
 };
 
-export const saveCustomSticker = async (sticker: CustomSticker): Promise<void> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
+export const saveCustomSticker = async (userId: string, sticker: CustomSticker): Promise<void> => {
   const { error } = await supabase
     .from('custom_stickers')
     .upsert({
       id: sticker.id,
-      user_id: user.id,
+      user_id: userId,
       name: sticker.name,
       data: sticker.url,
     }, { onConflict: 'id' });

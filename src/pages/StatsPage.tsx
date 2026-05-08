@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Flame, Smile, Tag as TagIcon, TrendingUp } from 'lucide-react';
-import { getDiaries, getTags, getAllMoodOptions } from '../utils/storage';
+import { useOutletContext } from 'react-router-dom';
+import { getAllMoodOptions } from '../utils/storage';
+import { useAuth } from '../contexts/AuthContext';
 import type { DiaryEntry, Tag, MoodOption } from '../types';
+import type { DiaryIndexOutletContext } from '../components/Layout';
 
 interface StatsData {
   totalDays: number;
@@ -13,25 +16,38 @@ interface StatsData {
 }
 
 export function StatsPage() {
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { diaries, tags, loading: indexLoading } = useOutletContext<DiaryIndexOutletContext>();
+  const [moods, setAllMoods] = useState<MoodOption[]>([]);
+  const [moodLoading, setMoodLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let cancelled = false;
 
-  const loadData = async () => {
-    setLoading(true);
-    const [diaries, allTags, allMoods] = await Promise.all([
-      getDiaries(),
-      getTags(),
-      getAllMoodOptions(),
-    ]);
-    setStats(calculateStats(diaries, allTags, allMoods));
-    setLoading(false);
-  };
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (!user?.id) {
+          if (cancelled) return;
+          setAllMoods([]);
+          setMoodLoading(false);
+          return;
+        }
 
-  const calculateStats = (diaries: DiaryEntry[], allTags: Tag[], allMoods: MoodOption[]): StatsData => {
+        setMoodLoading(true);
+        const nextMoods = await getAllMoodOptions(user.id);
+        if (cancelled) return;
+        setAllMoods(nextMoods);
+        setMoodLoading(false);
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [user?.id]);
+
+  const calculateStats = (diaries: DiaryEntry[], allTags: Tag[], moods: MoodOption[]): StatsData => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -54,7 +70,7 @@ export function StatsPage() {
       }
     });
     const topMoodEntry = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0];
-    const topMoodOption = topMoodEntry ? allMoods.find(m => m.value === topMoodEntry[0]) : null;
+    const topMoodOption = topMoodEntry ? moods.find(m => m.value === topMoodEntry[0]) : null;
     const topMood = topMoodEntry && topMoodOption
       ? {
           emoji: topMoodOption.emoji,
@@ -101,7 +117,7 @@ export function StatsPage() {
       angry: '#FCA5A5',
       love: '#F9A8D4',
     };
-    const moodDistribution = allMoods.map(m => ({
+    const moodDistribution = moods.map(m => ({
       ...m,
       count: moodCounts[m.value] || 0,
       color: moodColors[m.value] || '#A78BFA',
@@ -121,8 +137,11 @@ export function StatsPage() {
     if (diaries.length === 0) return 0;
 
     const sortedDates = [...new Set(diaries.map(d => d.date))].sort().reverse();
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const todayDate = new Date();
+    const today = todayDate.toISOString().split('T')[0];
+    const yesterdayDate = new Date(todayDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().split('T')[0];
 
     if (sortedDates[0] !== today && sortedDates[0] !== yesterday) {
       return 0;
@@ -143,6 +162,9 @@ export function StatsPage() {
 
     return streak;
   };
+
+  const loading = indexLoading || moodLoading;
+  const stats = loading ? null : calculateStats(diaries, tags, moods);
 
   const currentMonthStr = useMemo(() => {
     const now = new Date();

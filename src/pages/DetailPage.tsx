@@ -14,6 +14,7 @@ import {
   CloudSnow,
 } from 'lucide-react';
 import { getDiaryById, deleteDiary, getTags, formatDate, getAllMoodOptions } from '../utils/storage';
+import { useAuth } from '../contexts/AuthContext';
 import { WEATHER_OPTIONS, type Tag, type Weather, type DiarySticker, type DiaryEntry, type MoodOption } from '../types';
 
 interface FloatingStickerViewProps {
@@ -57,6 +58,7 @@ function FloatingStickerView({ sticker }: FloatingStickerViewProps) {
 export function DetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [diary, setDiary] = useState<DiaryEntry | undefined>(undefined);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -65,17 +67,21 @@ export function DetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      loadData();
+    if (id && user?.id) {
+      void loadData();
     }
-  }, [id, navigate]);
+  }, [id, user?.id, navigate]);
 
   const loadData = async () => {
+    if (!id || !user?.id) {
+      return;
+    }
+
     setLoading(true);
     const [diaryData, tagsData, moodsData] = await Promise.all([
-      getDiaryById(id!),
-      getTags(),
-      getAllMoodOptions(),
+      getDiaryById(id),
+      getTags(user.id),
+      getAllMoodOptions(user.id),
     ]);
 
     if (!diaryData) {

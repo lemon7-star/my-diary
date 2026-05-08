@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -11,40 +10,18 @@ import {
   User,
   Settings,
 } from 'lucide-react';
-import { getDiaries, getTags } from '../utils/storage';
+import type { DiaryEntry, Tag as TagItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
-export function Sidebar() {
+interface SidebarProps {
+  diaries: DiaryEntry[];
+  tags: TagItem[];
+  loading: boolean;
+}
+
+export function Sidebar({ diaries, tags, loading }: SidebarProps) {
   const location = useLocation();
   const { profile, signOut } = useAuth();
-  const [stats, setStats] = useState({
-    totalDiaries: 0,
-    totalTags: 0,
-    thisMonth: 0,
-  });
-
-  useEffect(() => {
-    loadData();
-  }, [location.pathname]);
-
-  const loadData = async () => {
-    const [diaries, tags] = await Promise.all([
-      getDiaries(),
-      getTags(),
-    ]);
-
-    const now = new Date();
-    const thisMonthCount = diaries.filter(d => {
-      const dDate = new Date(d.date);
-      return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
-    }).length;
-
-    setStats({
-      totalDiaries: diaries.length,
-      totalTags: tags.length,
-      thisMonth: thisMonthCount,
-    });
-  };
 
   const handleSignOut = async () => {
     if (confirm('确定要退出登录吗？')) {
@@ -52,119 +29,146 @@ export function Sidebar() {
     }
   };
 
+  const primaryAction = { path: '/new', icon: Plus, label: '写日记' };
   const navItems = [
     { path: '/', icon: Home, label: '首页' },
-    { path: '/new', icon: Plus, label: '写日记' },
-    { path: '/tags', icon: Tag, label: '标签管理' },
+    { path: '/tags', icon: Tag, label: '标签' },
     { path: '/stats', icon: BarChart3, label: '统计' },
-    { path: '/theme', icon: Palette, label: '主题设置' },
+    { path: '/theme', icon: Palette, label: '主题' },
+  ];
+
+  const now = new Date();
+  const thisMonthCount = diaries.filter((diary) => {
+    const diaryDate = new Date(diary.date);
+    return diaryDate.getMonth() === now.getMonth() && diaryDate.getFullYear() === now.getFullYear();
+  }).length;
+
+  const statItems = [
+    { label: '总日记', value: loading ? '—' : diaries.length },
+    { label: '本月', value: loading ? '—' : thisMonthCount },
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col">
-      {/* Logo */}
-      <div className="p-6 border-b border-gray-100">
-        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 bg-theme rounded-xl flex items-center justify-center">
-            <BookHeart className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">我的手账</h1>
-            <p className="text-xs text-gray-500">记录每一天的美好</p>
-          </div>
-        </Link>
-      </div>
+    <aside className="fixed left-0 top-0 h-full w-[18rem] bg-[#f6f2ff] px-3 py-4">
+      <div className="flex h-full flex-col overflow-hidden rounded-[26px] border border-[#ebe4ff] bg-white shadow-[0_18px_48px_rgba(113,84,221,0.08)]">
+        <div className="px-5 pb-4 pt-5">
+          <Link to="/" className="flex items-center gap-3 text-[#241b43] transition-opacity hover:opacity-85">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4efff]">
+              <BookHeart className="h-6 w-6 text-[#7b5cf5]" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-[15px] font-semibold text-[#241b43]">我的手账</h1>
+              <p className="truncate text-[12px] text-[#a09ab8]">记录每一天的美好</p>
+            </div>
+          </Link>
+        </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        {/* Navigation */}
-        <nav className="flex-1 min-h-0 overflow-y-auto p-4">
-          <ul className="space-y-1">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              const Icon = item.icon;
+        <div className="mx-5 h-px bg-[#f1ebff]" />
 
-              return (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`
-                      flex items-center gap-3 px-4 py-3 rounded-xl transition-all
-                      ${isActive
-                        ? 'bg-theme-light text-theme font-medium'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }
-                    `}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <nav className="flex-1 overflow-y-auto px-4 py-4">
+            <Link
+              to={primaryAction.path}
+              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] transition-all ${
+                location.pathname === primaryAction.path
+                  ? 'bg-[#7d62f5] text-white shadow-[0_12px_24px_rgba(125,98,245,0.22)]'
+                  : 'bg-[#7d62f5] text-white hover:bg-[#7256ef]'
+              }`}
+            >
+              <primaryAction.icon className="h-5 w-5" />
+              <span className="font-medium">{primaryAction.label}</span>
+            </Link>
 
-        {/* Bottom Panels */}
-        <div className="shrink-0">
-          <div className="p-4 border-t border-gray-100">
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-medium text-gray-700">统计概览</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-theme">{stats.totalDiaries}</p>
-                  <p className="text-xs text-gray-500">总日记数</p>
+            <div className="px-1 pb-2 pt-4 text-[11px] font-medium tracking-[0.08em] text-[#b0aac4]">
+              菜单
+            </div>
+
+            <ul className="space-y-1.5">
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                const Icon = item.icon;
+
+                return (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] transition-colors ${
+                        isActive
+                          ? 'bg-[#f1ebff] text-[#6d52ea]'
+                          : 'text-[#6c6781] hover:bg-[#faf7ff] hover:text-[#241b43]'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {statItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-[#f0eaff] bg-white px-4 py-3 text-center shadow-[0_6px_18px_rgba(130,103,235,0.05)]"
+                >
+                  <div className="text-[28px] font-semibold leading-none text-[#7d62f5] tabular-nums">
+                    {item.value}
+                  </div>
+                  <div className="mt-2 text-[11px] text-[#b1aac7]">{item.label}</div>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-600">{stats.thisMonth}</p>
-                  <p className="text-xs text-gray-500">本月</p>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[#f0eaff] bg-white px-4 py-3 shadow-[0_6px_18px_rgba(130,103,235,0.05)]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#f4efff]">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.username}
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-5 w-5 text-[#7b5cf5]" />
+                  )}
                 </div>
-              </div>
-              <div className="pt-2 border-t border-gray-200">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">标签总数</span>
-                  <span className="font-medium text-gray-900">{stats.totalTags} 个</span>
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-medium text-[#241b43]">
+                    {profile?.username || '用户'}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[12px] text-[#77c16f]">
+                    <span className="h-2 w-2 rounded-full bg-[#4dd266]" />
+                    <span>已登录</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </nav>
 
-          <div className="p-4 border-t border-gray-100 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-theme-light rounded-full flex items-center justify-center overflow-hidden">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={profile.username}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <User className="w-5 h-5 text-theme" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900 truncate max-w-[160px]">
-                  {profile?.username || '用户'}
-                </p>
-                <p className="text-xs text-gray-500">已登录</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
+          <div className="border-t border-[#f1ebff] px-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
               <Link
                 to="/profile"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
+                className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-[14px] transition-colors ${
+                  location.pathname === '/profile'
+                    ? 'border-[#ddd2ff] bg-[#f1ebff] text-[#6d52ea]'
+                    : 'border-[#f0eaff] bg-white text-[#77718e] hover:bg-[#faf7ff] hover:text-[#241b43]'
+                }`}
               >
-                <Settings className="w-5 h-5" />
-                <span>个人设置</span>
+                <Settings className="h-4 w-4" />
+                <span>设置</span>
               </Link>
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-500 transition-all"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-[#f0eaff] bg-white px-3 py-3 text-[14px] text-[#77718e] transition-colors hover:bg-[#fff7f8] hover:text-[#b05b74]"
               >
-                <LogOut className="w-5 h-5" />
-                <span>退出登录</span>
+                <LogOut className="h-4 w-4" />
+                <span>退出</span>
               </button>
             </div>
+
+            <p className="mt-3 px-1 text-[11px] text-[#b0aac4]">标签总数 {loading ? '—' : tags.length}</p>
           </div>
         </div>
       </div>
