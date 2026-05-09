@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Camera, Check, Lock, Save, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { getAuthErrorMessage } from '../utils/auth';
 
 export function ProfileSettingsPage() {
   const { user, profile, updateProfile, updatePassword } = useAuth();
@@ -18,19 +19,43 @@ export function ProfileSettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
-    setUsername(profile?.username ?? '');
-    setAvatarPreview(profile?.avatar_url ?? '');
-  }, [profile]);
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
+
+      setUsername(profile?.username ?? '');
+      setAvatarPreview(profile?.avatar_url ?? '');
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [profile?.avatar_url, profile?.username]);
 
   useEffect(() => {
     if (!avatarFile) {
       return;
     }
 
+    let cancelled = false;
     const previewUrl = URL.createObjectURL(avatarFile);
-    setAvatarPreview(previewUrl);
+    const timer = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
 
-    return () => URL.revokeObjectURL(previewUrl);
+      setAvatarPreview(previewUrl);
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      URL.revokeObjectURL(previewUrl);
+    };
   }, [avatarFile]);
 
   const displayAvatar = useMemo(() => avatarPreview || profile?.avatar_url || '', [avatarPreview, profile?.avatar_url]);
@@ -123,7 +148,7 @@ export function ProfileSettingsPage() {
     const { error } = await updatePassword(newPassword);
 
     if (error) {
-      setPasswordError(error.message);
+      setPasswordError(getAuthErrorMessage(error.message));
     } else {
       setNewPassword('');
       setConfirmPassword('');

@@ -10,23 +10,8 @@ import {
 } from 'lucide-react';
 import { getTheme, saveTheme, getCustomMoods, deleteCustomMood } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
+import { applyTheme } from '../utils/theme';
 import { THEME_COLORS, BORDER_RADIUS_OPTIONS, FONT_OPTIONS, type ThemeSettings, type CustomMood } from '../types';
-
-// Helper functions for color manipulation
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function adjustColor(hex: string, amount: number): string {
-  const num = parseInt(hex.slice(1), 16);
-  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
-  const b = Math.min(255, Math.max(0, (num & 0x00FF) + amount));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
 
 export function ThemePage() {
   const { user } = useAuth();
@@ -35,22 +20,38 @@ export function ThemePage() {
   const [customMoods, setCustomMoods] = useState<CustomMood[]>([]);
   const [moodToDelete, setMoodToDelete] = useState<CustomMood | null>(null);
 
-  const loadCustomMoods = async () => {
-    if (!user?.id) {
-      setCustomMoods([]);
-      return;
-    }
-
-    setCustomMoods(await getCustomMoods(user.id));
-  };
-
   useEffect(() => {
-    void loadCustomMoods();
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (!user?.id) {
+          if (cancelled) return;
+          setCustomMoods([]);
+          return;
+        }
+
+        const nextCustomMoods = await getCustomMoods(user.id);
+        if (cancelled) return;
+        setCustomMoods(nextCustomMoods);
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [user?.id]);
 
   const handleDeleteMood = async (mood: CustomMood) => {
     await deleteCustomMood(mood.id);
-    await loadCustomMoods();
+
+    if (!user?.id) {
+      setCustomMoods([]);
+    } else {
+      setCustomMoods(await getCustomMoods(user.id));
+    }
+
     setMoodToDelete(null);
   };
 
@@ -58,9 +59,6 @@ export function ThemePage() {
     saveTheme(theme);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-
-    // Apply theme to document
-    applyTheme(theme);
   };
 
   const handleReset = () => {
@@ -74,35 +72,9 @@ export function ThemePage() {
     applyTheme(defaultTheme);
   };
 
-  const applyTheme = (t: ThemeSettings) => {
-    const root = document.documentElement;
-    root.style.setProperty('--theme-primary', t.primaryColor);
-    root.style.setProperty('--theme-primary-light', t.primaryColor);
-    root.style.setProperty('--theme-primary-dark', adjustColor(t.primaryColor, -20));
-    root.style.setProperty('--theme-primary-10', hexToRgba(t.primaryColor, 0.1));
-    root.style.setProperty('--theme-primary-20', hexToRgba(t.primaryColor, 0.2));
-    root.style.setProperty('--theme-primary-40', hexToRgba(t.primaryColor, 0.4));
-
-    // Apply font family
-    let fontClass = 'font-sans';
-    switch (t.fontFamily) {
-      case 'system':
-        fontClass = 'font-sans';
-        break;
-      case 'serif':
-        fontClass = 'font-serif';
-        break;
-      case 'mono':
-        fontClass = 'font-mono';
-        break;
-    }
-
-    document.body.className = `bg-gray-50 text-gray-900 antialiased ${fontClass}`;
-  };
-
   useEffect(() => {
     applyTheme(theme);
-  }, []);
+  }, [theme]);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -264,40 +236,6 @@ export function ThemePage() {
           </div>
         )}
 
-        {/* Preview */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">预览</h2>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <h3 className="font-semibold text-gray-900 mb-2">按钮样式</h3>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="px-4 py-2 text-white rounded-lg font-medium transition-colors bg-theme hover:bg-theme-hover"
-                >
-                  主要按钮
-                </button>
-                <button
-                  className="px-4 py-2 rounded-lg font-medium transition-colors bg-theme-light text-theme"
-                >
-                  次要按钮
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <h3 className="font-semibold text-gray-900 mb-2">标签样式</h3>
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium border bg-theme-light text-theme border-theme"
-                  style={{ borderColor: 'var(--theme-primary-40)' }}
-                >
-                  示例标签
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Delete Mood Confirmation Modal */}

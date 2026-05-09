@@ -2,6 +2,7 @@ import { useState, type ComponentProps } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, Sparkles, PenLine, ShieldCheck, BookHeart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getAuthErrorMessage } from '../utils/auth';
 
 type AuthTab = 'login' | 'register';
 type AuthFormSubmitEvent = ComponentProps<'form'>['onSubmit'] extends ((event: infer T) => void) | undefined ? T : never;
@@ -18,14 +19,6 @@ export function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const getAuthErrorMessage = (message: string) => {
-    if (message === 'User already registered') {
-      return '该邮箱已注册，请直接登录';
-    }
-
-    return message;
-  };
 
   const handleLogin = async (e: AuthFormSubmitEvent) => {
     e.preventDefault();
@@ -93,9 +86,9 @@ export function AuthPage() {
   return (
     <div className="auth-shell">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-120px] top-[-120px] h-72 w-72 rounded-full bg-violet-300/30 blur-3xl" />
-        <div className="absolute right-[-80px] top-1/4 h-80 w-80 rounded-full bg-fuchsia-200/35 blur-3xl" />
-        <div className="absolute bottom-[-140px] left-1/3 h-96 w-96 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="absolute left-[-120px] top-[-120px] h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'var(--theme-primary-20)' }} />
+        <div className="absolute right-[-80px] top-1/4 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: 'var(--theme-primary-10)' }} />
+        <div className="absolute bottom-[-140px] left-1/3 h-96 w-96 rounded-full blur-3xl" style={{ backgroundColor: 'var(--theme-primary-20)' }} />
       </div>
 
       <div className="relative z-10 flex min-h-screen items-center justify-center p-6">
@@ -119,7 +112,7 @@ export function AuthPage() {
                 <h1 className="text-[26px] font-semibold leading-[1.45] text-white">
                   用更温柔的方式，记录你的生活片段
                 </h1>
-                <p className="mt-2 text-[13px] leading-6 text-[#c4b5fd]">
+                <p className="mt-2 text-[13px] leading-6 text-white/80">
                   把每天的情绪、灵感和片刻记下来，留成只属于你的时间线。
                 </p>
               </div>
@@ -129,17 +122,17 @@ export function AuthPage() {
               <div className="rounded-2xl bg-white/12 p-4 backdrop-blur-sm ring-1 ring-white/15">
                 <PenLine className="mb-3 h-5 w-5 text-white" />
                 <p className="text-base font-medium text-white">轻松记录</p>
-                <p className="mt-2 text-[12px] leading-5 text-[#ddd6fe]">随时写下今天的想法与灵感。</p>
+                <p className="mt-2 text-[12px] leading-5 text-white/75">随时写下今天的想法与灵感。</p>
               </div>
               <div className="rounded-2xl bg-white/12 p-4 backdrop-blur-sm ring-1 ring-white/15">
                 <BookHeart className="mb-3 h-5 w-5 text-white" />
                 <p className="text-base font-medium text-white">长期收藏</p>
-                <p className="mt-2 text-[12px] leading-5 text-[#ddd6fe]">把每一天的内容留在时间线里。</p>
+                <p className="mt-2 text-[12px] leading-5 text-white/75">把每一天的内容留在时间线里。</p>
               </div>
               <div className="rounded-2xl bg-white/12 p-4 backdrop-blur-sm ring-1 ring-white/15">
                 <ShieldCheck className="mb-3 h-5 w-5 text-white" />
                 <p className="text-base font-medium text-white">专属空间</p>
-                <p className="mt-2 text-[12px] leading-5 text-[#ddd6fe]">登录后持续更新你的私人手账。</p>
+                <p className="mt-2 text-[12px] leading-5 text-white/75">登录后持续更新你的私人手账。</p>
               </div>
             </div>
           </section>
@@ -149,8 +142,8 @@ export function AuthPage() {
             style={{ maxHeight: 'calc(100vh - 48px)' }}
           >
             <div className="mb-6 lg:hidden">
-              <div className="inline-flex items-center gap-3 rounded-2xl bg-[#f5f3ff] px-4 py-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7c5cfc] to-[#a78bfa]">
+              <div className="bg-theme-surface inline-flex items-center gap-3 rounded-2xl px-4 py-3">
+                <div className="bg-theme-gradient shadow-theme-medium flex h-10 w-10 items-center justify-center rounded-2xl">
                   <BookHeart className="h-5 w-5 text-white" />
                 </div>
                 <div>

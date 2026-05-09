@@ -73,7 +73,7 @@ export function HomePage() {
   if (!loading && diaries.length === 0) {
     return (
       <div className="space-y-6">
-        <section className="overflow-hidden rounded-[28px] border border-violet-100 bg-gradient-to-br from-[#7c5cfc] via-[#8b6dfd] to-[#c4b5fd] px-6 py-7 text-white shadow-[0_24px_70px_rgba(124,92,252,0.28)] sm:px-8">
+        <section className="bg-theme-gradient border-theme-soft shadow-theme-strong overflow-hidden rounded-[28px] border px-6 py-7 text-white sm:px-8">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm">
               <Sparkles className="h-3.5 w-3.5" />
@@ -97,7 +97,7 @@ export function HomePage() {
           <div className="mt-8 flex justify-center">
             <Link
               to="/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#7c5cfc] to-[#a78bfa] px-6 py-3 text-sm font-medium text-white shadow-[0_12px_30px_rgba(124,92,252,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(124,92,252,0.32)]"
+              className="bg-theme-gradient bg-theme-gradient-hover shadow-theme-strong inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-medium text-white transition-all hover:-translate-y-0.5"
             >
               <Plus className="h-5 w-5" />
               写第一篇日记
@@ -114,7 +114,7 @@ export function HomePage() {
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900">我的日记</h1>
         <Link
           to="/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#7c5cfc] to-[#a78bfa] px-5 py-3 text-sm font-medium text-white shadow-[0_12px_30px_rgba(124,92,252,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(124,92,252,0.32)]"
+          className="bg-theme-gradient bg-theme-gradient-hover shadow-theme-strong inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white transition-all hover:-translate-y-0.5"
         >
           <Plus className="h-5 w-5" />
           新建日记
@@ -141,7 +141,7 @@ export function HomePage() {
                 onClick={() => setSelectedTag(null)}
                 className={`rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                   selectedTag === null
-                    ? 'bg-theme-light text-theme ring-1 ring-violet-200'
+                    ? 'bg-theme-surface-strong text-theme-strong border-theme-soft-strong border'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                 }`}
               >
@@ -153,7 +153,7 @@ export function HomePage() {
                   onClick={() => setSelectedTag(selectedTag === tag.id ? null : tag.id)}
                   className={`rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                     selectedTag === tag.id
-                      ? 'bg-theme-light text-theme ring-1 ring-violet-200'
+                      ? 'bg-theme-surface-strong text-theme-strong border-theme-soft-strong border'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
                   }`}
                 >
@@ -222,7 +222,7 @@ export function HomePage() {
                   return (
                   <article
                     key={diary.id}
-                    className="group rounded-[24px] border border-gray-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_18px_40px_rgba(124,92,252,0.10)]"
+                    className="group hover:border-theme-soft-strong hover:shadow-theme-medium rounded-[24px] border border-gray-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5"
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">

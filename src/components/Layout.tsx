@@ -62,7 +62,7 @@ export function Layout() {
   }, [user?.id]);
 
   return (
-    <div className="flex min-h-screen bg-[#faf8ff]">
+    <div className="bg-theme-page flex min-h-screen">
       <Sidebar diaries={diaries} tags={tags} loading={loading} />
       <main className="ml-[18rem] flex-1 p-8">
         <div className="mx-auto max-w-5xl">

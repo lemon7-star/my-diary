@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { supabase, type Profile } from '../lib/supabase';
-import type { Session, User, AuthError } from '@supabase/supabase-js';
+import type { Session, User, AuthError, AuthChangeEvent } from '@supabase/supabase-js';
+import { getPasswordRecoveryRedirectUrl, isPasswordRecoveryUrl } from '../utils/auth';
 
 interface AuthContextType {
   session: Session | null;
@@ -9,12 +10,14 @@ interface AuthContextType {
   profile: Profile | null;
   authResolved: boolean;
   profileLoading: boolean;
+  isPasswordRecovery: boolean;
   signUp: (email: string, password: string, username: string) => Promise<{ error: AuthError | null; needsManualLogin?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   resetPasswordForEmail: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
   updateProfile: (updates: { username: string; avatar_url?: string | null }) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
+  clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -26,10 +29,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const currentUserIdRef = useRef<string | null>(null);
   const profileCacheRef = useRef(new Map<string, Profile | null>());
   const inFlightProfileRef = useRef(new Map<string, Promise<Profile | null>>());
+  const passwordRecoveryRef = useRef(false);
+
+  const updatePasswordRecovery = useCallback((nextValue: boolean) => {
+    passwordRecoveryRef.current = nextValue;
+    setIsPasswordRecovery(nextValue);
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => {
+    updatePasswordRecovery(false);
+  }, [updatePasswordRecovery]);
 
   const ensureProfileLoaded = useCallback(async (userId: string, options?: { force?: boolean }) => {
     const force = options?.force ?? false;
@@ -99,9 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [ensureProfileLoaded]);
 
-  const applySession = useCallback((nextSession: Session | null, options?: { forceProfileRefresh?: boolean }) => {
+  const applySession = useCallback((nextSession: Session | null, options?: { forceProfileRefresh?: boolean; recoveryState?: boolean }) => {
     const nextUser = nextSession?.user ?? null;
     const previousUserId = currentUserIdRef.current;
+
+    if (typeof options?.recoveryState === 'boolean') {
+      updatePasswordRecovery(options.recoveryState);
+    }
 
     setSession(nextSession);
     setUser(nextUser);
@@ -124,21 +142,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void loadProfile(nextUser.id, {
       force: options?.forceProfileRefresh ?? false,
     });
-  }, [loadProfile]);
+  }, [loadProfile, updatePasswordRecovery]);
 
   useEffect(() => {
     let active = true;
 
+    const getRecoveryStateFromEvent = (event: AuthChangeEvent) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        return true;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        return false;
+      }
+
+      return passwordRecoveryRef.current;
+    };
+
     const initializeAuth = async () => {
       const { data: { session: initialSession } } = await supabase.auth.getSession();
       if (!active) return;
-      applySession(initialSession);
+      applySession(initialSession, {
+        recoveryState: isPasswordRecoveryUrl(),
+      });
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
       applySession(nextSession, {
         forceProfileRefresh: event === 'USER_UPDATED',
+        recoveryState: getRecoveryStateFromEvent(event),
       });
     });
 
@@ -186,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPasswordForEmail = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/forgot-password?type=recovery`,
+      redirectTo: getPasswordRecoveryRedirectUrl(),
     });
     return { error };
   };
@@ -244,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthResolved(true);
     setProfileLoading(false);
     currentUserIdRef.current = null;
+    updatePasswordRecovery(false);
   };
 
   return (
@@ -254,12 +288,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         authResolved,
         profileLoading,
+        isPasswordRecovery,
         signUp,
         signIn,
         resetPasswordForEmail,
         updatePassword,
         updateProfile,
         refreshProfile,
+        clearPasswordRecovery,
         signOut,
       }}
     >

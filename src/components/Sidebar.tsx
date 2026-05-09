@@ -49,12 +49,12 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[18rem] bg-[#f6f2ff] px-3 py-4">
-      <div className="flex h-full flex-col overflow-hidden rounded-[26px] border border-[#ebe4ff] bg-white shadow-[0_18px_48px_rgba(113,84,221,0.08)]">
+    <aside className="bg-theme-page fixed left-0 top-0 h-full w-[18rem] px-3 py-4">
+      <div className="shadow-theme-soft border-theme-soft flex h-full flex-col overflow-hidden rounded-[26px] border bg-white">
         <div className="px-5 pb-4 pt-5">
           <Link to="/" className="flex items-center gap-3 text-[#241b43] transition-opacity hover:opacity-85">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4efff]">
-              <BookHeart className="h-6 w-6 text-[#7b5cf5]" />
+            <div className="bg-theme-surface flex h-12 w-12 items-center justify-center rounded-2xl">
+              <BookHeart className="text-theme h-6 w-6" />
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-[15px] font-semibold text-[#241b43]">我的手账</h1>
@@ -63,16 +63,16 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
           </Link>
         </div>
 
-        <div className="mx-5 h-px bg-[#f1ebff]" />
+        <div className="bg-theme-surface mx-5 h-px" />
 
         <div className="flex min-h-0 flex-1 flex-col">
           <nav className="flex-1 overflow-y-auto px-4 py-4">
             <Link
               to={primaryAction.path}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] transition-all ${
+              className={`bg-theme-gradient bg-theme-gradient-hover flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] text-white transition-all ${
                 location.pathname === primaryAction.path
-                  ? 'bg-[#7d62f5] text-white shadow-[0_12px_24px_rgba(125,98,245,0.22)]'
-                  : 'bg-[#7d62f5] text-white hover:bg-[#7256ef]'
+                  ? 'shadow-theme-strong'
+                  : 'shadow-theme-medium hover:-translate-y-0.5'
               }`}
             >
               <primaryAction.icon className="h-5 w-5" />
@@ -94,8 +94,8 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
                       to={item.path}
                       className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[15px] transition-colors ${
                         isActive
-                          ? 'bg-[#f1ebff] text-[#6d52ea]'
-                          : 'text-[#6c6781] hover:bg-[#faf7ff] hover:text-[#241b43]'
+                          ? 'bg-theme-surface-strong text-theme-strong'
+                          : 'text-[#6c6781] hover:bg-theme-surface hover:text-[#241b43]'
                       }`}
                     >
                       <Icon className="h-5 w-5" />
@@ -110,9 +110,9 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
               {statItems.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-2xl border border-[#f0eaff] bg-white px-4 py-3 text-center shadow-[0_6px_18px_rgba(130,103,235,0.05)]"
+                  className="border-theme-soft rounded-2xl border bg-white px-4 py-3 text-center shadow-[0_6px_18px_var(--theme-shadow-soft)]"
                 >
-                  <div className="text-[28px] font-semibold leading-none text-[#7d62f5] tabular-nums">
+                  <div className="text-theme text-[28px] font-semibold leading-none tabular-nums">
                     {item.value}
                   </div>
                   <div className="mt-2 text-[11px] text-[#b1aac7]">{item.label}</div>
@@ -120,9 +120,9 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-[#f0eaff] bg-white px-4 py-3 shadow-[0_6px_18px_rgba(130,103,235,0.05)]">
+            <div className="border-theme-soft mt-4 rounded-2xl border bg-white px-4 py-3 shadow-[0_6px_18px_var(--theme-shadow-soft)]">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#f4efff]">
+                <div className="bg-theme-surface flex h-11 w-11 items-center justify-center overflow-hidden rounded-full">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -130,7 +130,7 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
                       className="h-full w-full rounded-full object-cover"
                     />
                   ) : (
-                    <User className="h-5 w-5 text-[#7b5cf5]" />
+                    <User className="text-theme h-5 w-5" />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -146,14 +146,14 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
             </div>
           </nav>
 
-          <div className="border-t border-[#f1ebff] px-4 py-4">
+          <div className="border-theme-soft border-t px-4 py-4">
             <div className="grid grid-cols-2 gap-3">
               <Link
                 to="/profile"
                 className={`flex items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-[14px] transition-colors ${
                   location.pathname === '/profile'
-                    ? 'border-[#ddd2ff] bg-[#f1ebff] text-[#6d52ea]'
-                    : 'border-[#f0eaff] bg-white text-[#77718e] hover:bg-[#faf7ff] hover:text-[#241b43]'
+                    ? 'border-theme-soft-strong bg-theme-surface-strong text-theme-strong'
+                    : 'border-theme-soft bg-white text-[#77718e] hover:bg-theme-surface hover:text-[#241b43]'
                 }`}
               >
                 <Settings className="h-4 w-4" />
@@ -161,7 +161,7 @@ export function Sidebar({ diaries, tags, loading }: SidebarProps) {
               </Link>
               <button
                 onClick={handleSignOut}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-[#f0eaff] bg-white px-3 py-3 text-[14px] text-[#77718e] transition-colors hover:bg-[#fff7f8] hover:text-[#b05b74]"
+                className="border-theme-soft flex items-center justify-center gap-2 rounded-2xl border bg-white px-3 py-3 text-[14px] text-[#77718e] transition-colors hover:bg-[#fff7f8] hover:text-[#b05b74]"
               >
                 <LogOut className="h-4 w-4" />
                 <span>退出</span>

@@ -3,10 +3,20 @@
 :root {
   --theme-primary: #8b5cf6;
   --theme-primary-light: #a78bfa;
+  --theme-primary-mid: #9f76f8;
   --theme-primary-dark: #7c3aed;
   --theme-primary-10: rgba(139, 92, 246, 0.1);
   --theme-primary-20: rgba(139, 92, 246, 0.2);
   --theme-primary-40: rgba(139, 92, 246, 0.4);
+  --theme-page-bg: rgba(139, 92, 246, 0.05);
+  --theme-shell-bg: rgba(139, 92, 246, 0.08);
+  --theme-surface-bg: rgba(139, 92, 246, 0.1);
+  --theme-surface-bg-strong: rgba(139, 92, 246, 0.16);
+  --theme-border-soft: rgba(139, 92, 246, 0.14);
+  --theme-border-strong: rgba(139, 92, 246, 0.24);
+  --theme-shadow-soft: rgba(139, 92, 246, 0.08);
+  --theme-shadow-medium: rgba(139, 92, 246, 0.18);
+  --theme-shadow-strong: rgba(139, 92, 246, 0.28);
 }
 
 @layer base {
@@ -38,8 +48,36 @@
     background-color: var(--theme-primary-10);
   }
 
+  .bg-theme-page {
+    background-color: var(--theme-page-bg);
+  }
+
+  .bg-theme-shell {
+    background-color: var(--theme-shell-bg);
+  }
+
+  .bg-theme-surface {
+    background-color: var(--theme-surface-bg);
+  }
+
+  .bg-theme-surface-strong {
+    background-color: var(--theme-surface-bg-strong);
+  }
+
+  .bg-theme-gradient {
+    background-image: linear-gradient(135deg, var(--theme-primary-dark) 0%, var(--theme-primary) 52%, var(--theme-primary-light) 100%);
+  }
+
+  .bg-theme-gradient-hover:hover {
+    background-image: linear-gradient(135deg, var(--theme-primary-dark) 0%, var(--theme-primary) 48%, var(--theme-primary-mid) 100%);
+  }
+
   .text-theme {
     color: var(--theme-primary);
+  }
+
+  .text-theme-strong {
+    color: var(--theme-primary-dark);
   }
 
   .text-theme-hover:hover {
@@ -50,8 +88,32 @@
     border-color: var(--theme-primary);
   }
 
+  .border-theme-soft {
+    border-color: var(--theme-border-soft);
+  }
+
+  .border-theme-soft-strong {
+    border-color: var(--theme-border-strong);
+  }
+
   .ring-theme {
     --tw-ring-color: var(--theme-primary);
+  }
+
+  .ring-theme-soft {
+    --tw-ring-color: var(--theme-border-strong);
+  }
+
+  .shadow-theme-soft {
+    box-shadow: 0 18px 48px var(--theme-shadow-soft);
+  }
+
+  .shadow-theme-medium {
+    box-shadow: 0 12px 30px var(--theme-shadow-medium);
+  }
+
+  .shadow-theme-strong {
+    box-shadow: 0 16px 36px var(--theme-shadow-strong);
   }
 
   .focus\:ring-theme:focus {
@@ -61,19 +123,31 @@
     box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
   }
 
+  .hover\:bg-theme-surface:hover {
+    background-color: var(--theme-surface-bg);
+  }
+
+  .hover\:border-theme-soft-strong:hover {
+    border-color: var(--theme-border-strong);
+  }
+
+  .hover\:shadow-theme-medium:hover {
+    box-shadow: 0 18px 40px var(--theme-shadow-medium);
+  }
+
   .auth-shell {
     @apply relative min-h-screen overflow-hidden;
-    background: #ede9ff;
+    background: radial-gradient(circle at top left, var(--theme-primary-20), transparent 28%), linear-gradient(180deg, var(--theme-page-bg) 0%, #ffffff 100%);
   }
 
   .auth-panel {
     @apply rounded-[20px] bg-white;
-    box-shadow: 0 8px 40px rgba(124, 92, 252, 0.15);
+    box-shadow: 0 8px 40px var(--theme-shadow-medium);
   }
 
   .auth-hero {
     @apply relative overflow-hidden text-white;
-    background: linear-gradient(135deg, #7c5cfc 0%, #8b6dfd 45%, #a78bfa 100%);
+    background: linear-gradient(135deg, var(--theme-primary-dark) 0%, var(--theme-primary) 48%, var(--theme-primary-light) 100%);
   }
 
   .auth-tab-track {
@@ -86,7 +160,7 @@
 
   .auth-tab-active {
     @apply bg-white;
-    color: #7c5cfc;
+    color: var(--theme-primary-dark);
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   }
 
@@ -99,15 +173,15 @@
 
   .auth-input:focus {
     background: white;
-    border-color: #7c5cfc;
+    border-color: var(--theme-primary);
     border-width: 1.5px;
     box-shadow: none;
   }
 
   .auth-primary-btn {
     @apply inline-flex h-[40px] items-center justify-center rounded-[8px] px-5 py-0 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50;
-    background-image: linear-gradient(135deg, #7c5cfc, #a78bfa);
-    box-shadow: 0 12px 30px rgba(124, 92, 252, 0.28);
+    background-image: linear-gradient(135deg, var(--theme-primary-dark), var(--theme-primary), var(--theme-primary-light));
+    box-shadow: 0 12px 30px var(--theme-shadow-strong);
   }
 
   .auth-scrollbar-hidden {
@@ -121,7 +195,7 @@
 
   .auth-primary-btn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 16px 36px rgba(124, 92, 252, 0.32);
+    box-shadow: 0 16px 36px var(--theme-shadow-strong);
   }
 
   .auth-alert-error {
