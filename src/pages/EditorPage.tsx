@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   ArrowLeft,
   Save,
@@ -16,6 +16,7 @@ import {
 import { getDiaryById, saveDiary, getTags, saveTag, generateId, getAllMoodOptions, saveCustomMood, getCustomStickers, saveCustomSticker } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { DrawingCanvas } from '../components/DrawingCanvas';
+import type { DiaryIndexOutletContext } from '../components/Layout';
 import { WEATHER_OPTIONS, TAG_COLORS, COMMON_EMOJIS, BUILTIN_STICKERS, type DiaryEntry, type DiaryImage, type DiarySticker, type Tag, type Weather, type Mood, type MoodOption, type CustomSticker } from '../types';
 
 const isEmoji = (str: string) => {
@@ -148,6 +149,7 @@ function StickerItem({ sticker, isSelected, onSelect, onDeselect, onUpdate, onDr
 export function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { refresh } = useOutletContext<DiaryIndexOutletContext>();
   const { user } = useAuth();
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -186,40 +188,54 @@ export function EditorPage() {
   const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日 · ${weekDays[today.getDay()]}`;
 
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (!user?.id) {
+          if (cancelled) return;
+          setLoading(false);
+          return;
+        }
+
+        setLoading(true);
+        const [tagsData, moodsData, stickersData] = await Promise.all([
+          getTags(user.id),
+          getAllMoodOptions(user.id),
+          getCustomStickers(user.id),
+        ]);
+
+        if (cancelled) return;
+        setTags(tagsData);
+        setMoodOptions(moodsData);
+        setCustomStickers(stickersData);
+
+        if (id) {
+          const diary = await getDiaryById(id);
+          if (cancelled) return;
+
+          if (diary) {
+            setTitle(diary.title);
+            setContent(diary.content);
+            setMood(diary.mood);
+            setSelectedTags(diary.tags);
+            setImages(diary.images);
+            setStickers(diary.stickers || []);
+            setLocation(diary.location || '');
+            setWeather(diary.weather);
+          }
+        }
+
+        if (cancelled) return;
+        setLoading(false);
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [id, user?.id]);
-
-  const loadData = async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const [tagsData, moodsData, stickersData] = await Promise.all([
-      getTags(user.id),
-      getAllMoodOptions(user.id),
-      getCustomStickers(user.id),
-    ]);
-    setTags(tagsData);
-    setMoodOptions(moodsData);
-    setCustomStickers(stickersData);
-
-    if (id) {
-      const diary = await getDiaryById(id);
-      if (diary) {
-        setTitle(diary.title);
-        setContent(diary.content);
-        setMood(diary.mood);
-        setSelectedTags(diary.tags);
-        setImages(diary.images);
-        setStickers(diary.stickers || []);
-        setLocation(diary.location || '');
-        setWeather(diary.weather);
-      }
-    }
-    setLoading(false);
-  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -266,6 +282,7 @@ export function EditorPage() {
     };
 
     await saveDiary(user.id, diary);
+    await refresh();
     navigate('/');
   };
 
@@ -332,7 +349,7 @@ export function EditorPage() {
   };
 
   const handleHandDrawSave = (dataUrl: string) => {
-    addStickerToCanvas(dataUrl, `手绘-${Date.now()}`);
+    addStickerToCanvas(dataUrl, '手绘贴纸');
   };
 
   const updateSticker = (id: string, updates: Partial<DiarySticker>) => {
