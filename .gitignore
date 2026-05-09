@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Claude/project docs
+CLAUDE.md
+日记App_MVP需求文档.md
